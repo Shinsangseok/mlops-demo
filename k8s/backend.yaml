@@ -3,7 +3,7 @@ kind: Deployment
 
 metadata:
   name: backend
-  namespace: demo
+  namespace: model
 
 spec:
   replicas: 2
