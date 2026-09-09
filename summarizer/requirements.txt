@@ -1,0 +1,8 @@
+transformers==4.46.3
+sentencepiece
+beautifulsoup4
+requests
+click
+fastapi
+uvicorn
+streamlit
