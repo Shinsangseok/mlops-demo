@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+  namespace: jenkins
+
+spec:
+  replicas: 1
+
+  strategy:
+    type: Recreate
+
+  selector:
+    matchLabels:
+      app: jenkins
+
+  template:
+    metadata:
+      labels:
+        app: jenkins
+
+    spec:
+      serviceAccountName: jenkins
+
+      securityContext:
+        fsGroup: 1000
+
+      imagePullSecrets:
+        - name: registry-auth
+
+      containers:
+        - name: jenkins
+          image: myregistry.com/mlops-jenkins:1.0
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+          env:
+            - name: CASC_JENKINS_CONFIG
+              value: /var/jenkins_home/casc/casc.yaml
+
+            - name: JAVA_OPTS
+              value: "-Djenkins.install.runSetupWizard=false"
+
+            - name: JENKINS_ADMIN_ID
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-admin
+                  key: username
+
+            - name: JENKINS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jenkins-admin
+                  key: password
+
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+
+            - name: casc
+              mountPath: /var/jenkins_home/casc
+              readOnly: true
+
+      volumes:
+        - name: jenkins-home
+          persistentVolumeClaim:
+            claimName: jenkins-home
+
+        - name: casc
+          configMap:
+            name: jenkins-casc
