@@ -51,7 +51,7 @@ NETRC
                         python -m pip install \
                           --index-url http://172.16.0.200:8081/repository/pypi-group/simple \
                           --trusted-host 172.16.0.200 \
-                          requests
+                          -r summarizer/requirements.txt
 
                         rm -f ~/.netrc
 
