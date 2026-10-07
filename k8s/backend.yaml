@@ -18,19 +18,39 @@ spec:
         app: backend
 
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+
       containers:
       - name: backend
         image: myregistry.com/backend:v2
         imagePullPolicy: IfNotPresent
 
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+
+        env:
+        - name: PYTHONDONTWRITEBYTECODE
+          value: "1"
+
         volumeMounts:
         - name: model-volume
           mountPath: /models
+
+        - name: tmp
+          mountPath: /tmp
 
       volumes:
       - name: model-volume
         persistentVolumeClaim:
           claimName: model-pvc
+
+      - name: tmp
+        emptyDir: {}
 
       imagePullSecrets:
       - name: regcred

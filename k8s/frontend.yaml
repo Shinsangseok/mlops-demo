@@ -1,5 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   labels:
     app: frontend
@@ -19,9 +20,18 @@ spec:
         app: frontend
 
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+
       containers:
       - image: myregistry.com/frontend:v2
         name: frontend
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
 
         env:
         - name: API_URL
@@ -29,6 +39,17 @@ spec:
             configMapKeyRef:
               name: api-url
               key: url
+
+        - name: HOME
+          value: /tmp
+
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+
+      volumes:
+      - name: tmp
+        emptyDir: {}
 
       imagePullSecrets:
       - name: regcred

@@ -10,8 +10,12 @@ COPY requirements.txt .
 # 필요한 패키지 설치
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Streamlit 코드 복사
-COPY frontend/frontend.py .
+RUN groupadd -g 10001 appgroup \
+    && useradd -m -u 10001 -g appgroup -s /usr/sbin/nologin appuser
+
+COPY --chown=appuser:appgroup frontend/frontend.py .
+
+USER appuser
 
 # 컨테이너 시작 시 Streamlit 실행
 CMD ["streamlit", "run", "frontend.py", "--server.address=0.0.0.0", "--server.port=8501"]
