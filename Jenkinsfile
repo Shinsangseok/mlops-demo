@@ -17,6 +17,12 @@ spec:
       command:
         - cat
       tty: true
+
+    - name: trivy
+      image: aquasec/trivy:0.74.0
+      command:
+        - cat
+      tty: true
 '''
         }
     }
@@ -83,6 +89,21 @@ NETRC
                               -Dsonar.login=${SONAR_TOKEN}
                         '''
                     }
+                }
+            }
+        }
+
+        stage('Trivy Filesystem Scan') {
+            steps {
+                container('trivy') {
+                    sh '''
+                        trivy fs \
+                          --scanners vuln,secret,misconfig \
+                          --severity HIGH,CRITICAL \
+                          --exit-code 0 \
+                          --no-progress \
+                          .
+                    '''
                 }
             }
         }
