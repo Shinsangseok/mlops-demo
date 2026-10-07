@@ -3,3 +3,5 @@ airflow/.env
 airflow/logs/
 airflow/config/
 airflow/dags/__pycache__/
+mlflow/.env
+mlflow/data/

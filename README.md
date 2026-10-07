@@ -51,7 +51,7 @@ Kubernetes에 임시 Agent Pod를 생성하여 Pipeline 작업을 실행하도�
 - [x] SonarQube 연동
 - [x] Trivy 연동
 - [x] Airflow 연동
-- [ ] MLflow 연동
+- [x] MLflow 연동
 - [ ] 전체 Pipeline 연결 및 검증
 
 ## 학습 목표

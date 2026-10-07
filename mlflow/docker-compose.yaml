@@ -1,0 +1,23 @@
+name: mlops-demo-mlflow
+
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.16.1-full
+    container_name: mlops-demo-mlflow
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:////mlflow/data/mlflow.db
+      - --artifacts-destination
+      - /mlflow/data/artifacts
+      - --serve-artifacts
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - ./data:/mlflow/data
+    restart: unless-stopped
