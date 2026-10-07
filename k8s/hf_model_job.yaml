@@ -4,12 +4,23 @@ kind: Pod
 metadata:
   name: hf-download
 spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
   imagePullSecrets:
   - name: regcred
   restartPolicy: Never
   containers:
   - name: hf-download
     image: myregistry.com/hfcli
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+    env: 
+    - name: HF_HOME 
+      value: /model/.cache/huggingface
     command:
     - hf
     args:
