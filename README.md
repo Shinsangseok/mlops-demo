@@ -48,8 +48,8 @@ Kubernetes에 임시 Agent Pod를 생성하여 Pipeline 작업을 실행하도�
 - [x] Nexus PyPI Proxy / Group 구성
 - [x] Jenkins용 Nexus 읽기 계정 구성
 - [x] Jenkins에서 Nexus를 통한 Python 패키지 설치 검증
-- [ ] SonarQube 연동
-- [ ] Trivy 연동
+- [x] SonarQube 연동
+- [x] Trivy 연동
 - [ ] Airflow 연동
 - [ ] MLflow 연동
 - [ ] 전체 Pipeline 연결 및 검증

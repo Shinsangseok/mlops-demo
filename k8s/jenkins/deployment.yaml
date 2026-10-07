@@ -30,7 +30,7 @@ spec:
 
       containers:
         - name: jenkins
-          image: myregistry.com/mlops-jenkins:1.0
+          image: myregistry.com/mlops-jenkins:1.1
           imagePullPolicy: Always
 
           ports:
