@@ -101,10 +101,21 @@ NETRC
                           --scanners vuln,secret,misconfig \
                           --severity HIGH,CRITICAL \
                           --exit-code 0 \
-                          --no-progress \
+                          --format template \
+                          --template "@/contrib/html.tpl" \
+                          --output trivy-report.html \
                           .
                     '''
                 }
+
+                publishHTML([
+                    reportDir: '.',
+                    reportFiles: 'trivy-report.html',
+                    reportName: 'Trivy Security Report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: false
+                ])
             }
         }
     }
