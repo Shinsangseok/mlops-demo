@@ -1,0 +1,317 @@
+# PIPELINE DEFINITION
+# Name: iris-validated-pipeline
+# Inputs:
+#    min_cv_accuracy: float [Default: 0.85]
+#    min_test_accuracy: float [Default: 0.85]
+#    n_estimators: int [Default: 100.0]
+# Outputs:
+#    Output: float
+components:
+  comp-evaluate-model-v3:
+    executorLabel: exec-evaluate-model-v3
+    inputDefinitions:
+      artifacts:
+        model_artifact:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        test_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        classification_metrics:
+          artifactType:
+            schemaTitle: system.ClassificationMetrics
+            schemaVersion: 0.0.1
+        evaluation_metrics:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+      parameters:
+        Output:
+          parameterType: NUMBER_DOUBLE
+  comp-quality-gate:
+    executorLabel: exec-quality-gate
+    inputDefinitions:
+      parameters:
+        cv_accuracy_mean:
+          parameterType: NUMBER_DOUBLE
+        min_cv_accuracy:
+          defaultValue: 0.85
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+        min_test_accuracy:
+          defaultValue: 0.85
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+        test_accuracy:
+          parameterType: NUMBER_DOUBLE
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_DOUBLE
+  comp-train-model-v3:
+    executorLabel: exec-train-model-v3
+    inputDefinitions:
+      parameters:
+        n_estimators:
+          defaultValue: 100.0
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        model_artifact:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        test_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        train_metrics:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+      parameters:
+        Output:
+          parameterType: NUMBER_DOUBLE
+deploymentSpec:
+  executors:
+    exec-evaluate-model-v3:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate_model_v3
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'scikit-learn==1.5.2'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate_model_v3(\n    model_artifact: dsl.Input[dsl.Model],\n\
+          \    test_data: dsl.Input[dsl.Dataset],\n    evaluation_metrics: dsl.Output[dsl.Metrics],\n\
+          \    classification_metrics: dsl.Output[dsl.ClassificationMetrics]\n) ->\
+          \ float:\n    import joblib\n    import numpy as np\n    from sklearn.metrics\
+          \ import (\n        accuracy_score, f1_score, precision_score,\n       \
+          \ recall_score, confusion_matrix\n    )\n\n    model = joblib.load(model_artifact.path)\n\
+          \    with np.load(test_data.path, allow_pickle=False) as data:\n       \
+          \ X_test = data[\"X_test\"]\n        y_test = data[\"y_test\"]\n\n    predictions\
+          \ = model.predict(X_test)\n    accuracy = float(accuracy_score(y_test, predictions))\n\
+          \    f1_macro = float(f1_score(y_test, predictions, average=\"macro\", zero_division=0))\n\
+          \    precision_macro = float(precision_score(y_test, predictions, average=\"\
+          macro\", zero_division=0))\n    recall_macro = float(recall_score(y_test,\
+          \ predictions, average=\"macro\", zero_division=0))\n\n    evaluation_metrics.log_metric(\"\
+          test_accuracy\", accuracy)\n    evaluation_metrics.log_metric(\"test_f1_macro\"\
+          , f1_macro)\n    evaluation_metrics.log_metric(\"test_precision_macro\"\
+          , precision_macro)\n    evaluation_metrics.log_metric(\"test_recall_macro\"\
+          , recall_macro)\n\n    matrix = confusion_matrix(y_test, predictions, labels=[0,\
+          \ 1, 2]).tolist()\n    classification_metrics.log_confusion_matrix(\n  \
+          \      categories=[\"setosa\", \"versicolor\", \"virginica\"],\n       \
+          \ matrix=matrix\n    )\n\n    print(\"\uD14C\uC2A4\uD2B8 \uC0D8\uD50C \uC218\
+          :\", len(y_test))\n    print(\"Accuracy:\", accuracy)\n    print(\"Macro\
+          \ F1:\", f1_macro)\n    print(\"Confusion Matrix:\", matrix)\n    return\
+          \ accuracy\n\n"
+        image: python:3.11-slim
+    exec-quality-gate:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - quality_gate
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef quality_gate(\n    test_accuracy: float,\n    cv_accuracy_mean:\
+          \ float,\n    min_test_accuracy: float = 0.85,\n    min_cv_accuracy: float\
+          \ = 0.85\n) -> float:\n    print(\"\uD14C\uC2A4\uD2B8 \uC815\uD655\uB3C4\
+          :\", test_accuracy)\n    print(\"CV \uD3C9\uADE0 \uC815\uD655\uB3C4:\",\
+          \ cv_accuracy_mean)\n    print(\"\uD14C\uC2A4\uD2B8 \uAE30\uC900:\", min_test_accuracy)\n\
+          \    print(\"CV \uAE30\uC900:\", min_cv_accuracy)\n\n    if test_accuracy\
+          \ < min_test_accuracy:\n        raise ValueError(\"\uD14C\uC2A4\uD2B8 \uC815\
+          \uD655\uB3C4\uAC00 \uAE30\uC900\uC5D0 \uBBF8\uB2EC\uD569\uB2C8\uB2E4.\"\
+          )\n    if cv_accuracy_mean < min_cv_accuracy:\n        raise ValueError(\"\
+          \uAD50\uCC28\uAC80\uC99D \uD3C9\uADE0\uC774 \uAE30\uC900\uC5D0 \uBBF8\uB2EC\
+          \uD569\uB2C8\uB2E4.\")\n\n    print(\"\uBAA8\uB378 \uD488\uC9C8 \uAC80\uC0AC\
+          \ \uD1B5\uACFC\")\n    return test_accuracy\n\n"
+        image: python:3.11-slim
+    exec-train-model-v3:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train_model_v3
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'scikit-learn==1.5.2'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train_model_v3(\n    model_artifact: dsl.Output[dsl.Model],\n\
+          \    test_data: dsl.Output[dsl.Dataset],\n    train_metrics: dsl.Output[dsl.Metrics],\n\
+          \    n_estimators: int = 100\n) -> float:\n    import joblib\n    import\
+          \ numpy as np\n\n    from sklearn.datasets import load_iris\n    from sklearn.model_selection\
+          \ import (\n        train_test_split,\n        StratifiedKFold,\n      \
+          \  cross_val_score\n    )\n    from sklearn.ensemble import RandomForestClassifier\n\
+          \n    # 1. \uB370\uC774\uD130 \uB85C\uB4DC\n    iris = load_iris()\n\n \
+          \   # 2. \uD559\uC2B5 / \uD14C\uC2A4\uD2B8 \uB370\uC774\uD130 \uBD84\uB9AC\
+          \n    X_train, X_test, y_train, y_test = train_test_split(\n        iris.data,\n\
+          \        iris.target,\n        test_size=0.2,\n        random_state=42,\n\
+          \        stratify=iris.target\n    )\n\n    # 3. \uBAA8\uB378 \uC0DD\uC131\
+          \n    model = RandomForestClassifier(\n        n_estimators=n_estimators,\n\
+          \        random_state=42\n    )\n\n    # 4. 5-Fold \uAD50\uCC28\uAC80\uC99D\
+          \ (\uD559\uC2B5 \uB370\uC774\uD130\uB9CC \uC0AC\uC6A9)\n    cv = StratifiedKFold(\n\
+          \        n_splits=5,\n        shuffle=True,\n        random_state=42\n \
+          \   )\n\n    scores = cross_val_score(\n        model,\n        X_train,\n\
+          \        y_train,\n        cv=cv,\n        scoring=\"accuracy\"\n    )\n\
+          \n    print(\"\uAD50\uCC28\uAC80\uC99D Accuracy:\", scores)\n    print(\"\
+          \uAD50\uCC28\uAC80\uC99D \uD3C9\uADE0:\", scores.mean())\n    print(\"\uAD50\
+          \uCC28\uAC80\uC99D \uD45C\uC900\uD3B8\uCC28:\", scores.std())\n\n    # 5.\
+          \ \uC804\uCCB4 \uD559\uC2B5 \uB370\uC774\uD130\uB85C \uCD5C\uC885 \uBAA8\
+          \uB378 \uD559\uC2B5\n    model.fit(X_train, y_train)\n\n    # 6. \uBAA8\uB378\
+          \ \uC800\uC7A5\n    joblib.dump(model, model_artifact.path)\n\n    model_artifact.metadata[\"\
+          framework\"] = \"scikit-learn\"\n    model_artifact.metadata[\"n_estimators\"\
+          ] = n_estimators\n\n    # 7. \uD14C\uC2A4\uD2B8 \uB370\uC774\uD130 \uC800\
+          \uC7A5\n    with open(test_data.path, \"wb\") as f:\n        np.savez(\n\
+          \            f,\n            X_test=X_test,\n            y_test=y_test\n\
+          \        )\n\n    # 8. KFP Metrics \uAE30\uB85D\n    train_metrics.log_metric(\n\
+          \        \"cv_accuracy_mean\",\n        float(scores.mean())\n    )\n\n\
+          \    train_metrics.log_metric(\n        \"cv_accuracy_std\",\n        float(scores.std())\n\
+          \    )\n\n    # quality_gate\uC5D0 \uAD50\uCC28\uAC80\uC99D \uD3C9\uADE0\
+          \uC744 \uC804\uB2EC\uD569\uB2C8\uB2E4.\n    return float(scores.mean())\n\
+          \n"
+        image: python:3.11-slim
+pipelineInfo:
+  name: iris-validated-pipeline
+root:
+  dag:
+    outputs:
+      parameters:
+        Output:
+          valueFromParameter:
+            outputParameterKey: Output
+            producerSubtask: quality-gate
+    tasks:
+      evaluate-model-v3:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluate-model-v3
+        dependentTasks:
+        - train-model-v3
+        inputs:
+          artifacts:
+            model_artifact:
+              taskOutputArtifact:
+                outputArtifactKey: model_artifact
+                producerTask: train-model-v3
+            test_data:
+              taskOutputArtifact:
+                outputArtifactKey: test_data
+                producerTask: train-model-v3
+        taskInfo:
+          name: evaluate-model-v3
+      quality-gate:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-quality-gate
+        dependentTasks:
+        - evaluate-model-v3
+        - train-model-v3
+        inputs:
+          parameters:
+            cv_accuracy_mean:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: train-model-v3
+            min_cv_accuracy:
+              componentInputParameter: min_cv_accuracy
+            min_test_accuracy:
+              componentInputParameter: min_test_accuracy
+            test_accuracy:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: evaluate-model-v3
+        taskInfo:
+          name: quality-gate
+      train-model-v3:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-train-model-v3
+        inputs:
+          parameters:
+            n_estimators:
+              componentInputParameter: n_estimators
+        taskInfo:
+          name: train-model-v3
+  inputDefinitions:
+    parameters:
+      min_cv_accuracy:
+        defaultValue: 0.85
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      min_test_accuracy:
+        defaultValue: 0.85
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      n_estimators:
+        defaultValue: 100.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+  outputDefinitions:
+    parameters:
+      Output:
+        parameterType: NUMBER_DOUBLE
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.16.1
