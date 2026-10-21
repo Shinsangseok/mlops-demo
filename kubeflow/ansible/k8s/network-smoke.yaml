@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: netcheck-server
+  namespace: mlops-netcheck
+  labels: 
+    app: netcheck-server
+spec: 
+  nodeSelector: 
+    kubernetes.io/hostname: node01
+  restartPolicy: Never
+  containers: 
+    - name: server
+      image: busybox:1.36
+      command: 
+        - sh 
+        - -c
+        - | 
+          mkdir -p /www
+          echo "hello from node01" > /www/index.html
+          exec httpd -f -p 8080 -h /www
+      ports: 
+        - containerPort: 8080
+
+
+---
+apiVersion: v1
+kind: Pod 
+metadata: 
+  name: netcheck-client
+  namespace: mlops-netcheck
+  labels: 
+    app: netcheck-client
+spec: 
+  nodeSelector:
+    kubernetes.io/hostname: node02
+  restartPolicy: Never
+  containers:
+    - name: client
+      image: busybox:1.36
+      command: 
+        - sh 
+        - -c
+        - sleep 3600 
+
+---
+apiVersion: v1
+kind: Service 
+metadata: 
+  name: netcheck-server
+  namespace: mlops-netcheck
+spec: 
+  type: ClusterIP
+  selector: 
+    app: netcheck-server
+  ports: 
+    - name: http 
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

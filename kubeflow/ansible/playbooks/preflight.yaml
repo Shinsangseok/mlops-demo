@@ -1,0 +1,24 @@
+---
+- name: Kubeflow Ansible Lab Preflight 
+  hosts: localhost
+  connection: local 
+  gather_facts: false
+
+  vars_files: 
+    - ../group_vars/all.yaml
+
+  tasks: 
+    - name: Show target versions 
+      ansible.builtin.debug: 
+        msg: 
+          - "Kubernetes target: {{ kubernetes_target_minor }}"
+          - "Calico version: {{ calico_version }}"
+          - "Kubeflow version: {{ kubeflow_version }}" 
+
+    - name: Validate safe execution mode 
+      ansible.builtin.assert:
+        that: 
+          - lab_mode == "read_only"
+          - kubernetes_target_minor == "1.36"
+        success_msg: "Preflight validation passed"
+        fail_msg: "Invalid lab configuration"

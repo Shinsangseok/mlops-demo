@@ -1,0 +1,13 @@
+[control_plane]
+controlplane ansible_host=192.0.2.101 
+
+[workers]
+node01 ansible_host=192.0.2.102
+node02 ansible_host=192.0.2.103 
+
+[k8s_cluster:children]
+control_plane
+workers
+
+[all:vars]
+ansible_user=mlops-user
