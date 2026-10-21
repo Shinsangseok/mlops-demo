@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: feature-quality-exporter
+  namespace: monitoring
+  labels:
+    app: feature-quality-exporter
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 9102
+      targetPort: 9102
+      protocol: TCP
+
+
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: feature-quality-exporter-1
+  namespace: monitoring
+  labels:
+    kubernetes.io/service-name: feature-quality-exporter
+    endpointslice.kubernetes.io/managed-by: feature-quality-lab
+addressType: IPv4
+ports:
+  - name: metrics
+    protocol: TCP
+    port: 9102
+endpoints:
+  - addresses:
+    - "172.16.0.200"
+    conditions:
+      ready: true
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: feature-quality-exporter
+  namespace: monitoring
+  labels:
+    release: monitor
+spec:
+  serviceDiscoveryRole: EndpointSlice
+  namespaceSelector:
+    matchNames:
+      - monitoring
+  selector:
+    matchLabels:
+      app: feature-quality-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      scheme: http
