@@ -1,0 +1,10 @@
+---
+# Kubernetes 설치 목표 버전 
+kubernetes_target_minor: "1.36"
+
+# 실제 설치 버전은 호환성 확인 후 확정 
+calico_version: "TBD"
+kubeflow_version: "TBD"
+
+# 안전한 사전 검증 모드 
+lab_mode: "read_only"
